@@ -1,0 +1,52 @@
+================================================================================
+                        Welcome to IronChat IRC Network!
+================================================================================
+
+This server is running IronChatD - a modern, high-performance IRC server
+written in Rust with full IRCv3 protocol support.
+
+Server Features:
+• IRCv3 capabilities including message-tags, server-time, SASL, and more
+• TLS encryption available on port 6697 (ssl.ironchatd.local)
+• Advanced flood protection and security measures
+• Modern async architecture for optimal performance
+• Database persistence for user accounts and channel registration
+
+Network Information:
+• Network Name: IronChat
+• Server: ironchatd.local
+• Ports: 6667 (plain), 6697 (TLS)
+• Administrator: admin@example.com
+
+Getting Started:
+• For help, join #help or type /msg NickServ HELP
+• Register your nickname: /msg NickServ REGISTER <password> <email>
+• Register a channel: /msg ChanServ REGISTER <#channel>
+• See available channels: /LIST
+
+IRCv3 Client Support:
+If your client supports IRCv3, you can enable advanced features:
+• Message history and offline messages
+• Enhanced notifications and metadata
+• SASL authentication for secure login
+• Server-side time synchronization
+
+Network Rules:
+1. Be respectful to all users
+2. No spam, flooding, or excessive automated messages
+3. No harassment, hate speech, or abusive behavior
+4. Keep channels on-topic when possible
+5. Respect channel operators and their decisions
+6. No sharing of malware, illegal content, or harmful links
+
+Support:
+• Help Channel: #help
+• Network Issues: #support
+• Development: #ironchatd
+• Website: https://ironchatd.local
+• Bug Reports: https://github.com/ironchatd/ironchatd/issues
+
+Thanks for choosing IronChat! We hope you enjoy your stay.
+
+Last updated: 2025-01-01
+================================================================================

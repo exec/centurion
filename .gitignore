@@ -1,0 +1,43 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration
+config.local.toml
+*.env
+.env*
+
+# TLS certificates
+*.pem
+*.crt
+*.key
+
+# Test artifacts
+test_server/target/
+test_server/Cargo.lock
+
+# Backup files
+*.bak
+*.tmp
+EOF < /dev/null
