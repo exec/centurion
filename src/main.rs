@@ -10,6 +10,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod actors;
 mod commands;
 mod db;
+mod history;
 mod protocol;
 mod security;
 mod state;

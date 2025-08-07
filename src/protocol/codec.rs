@@ -1,10 +1,10 @@
 use bytes::{Buf, BufMut, BytesMut};
-use irc_proto::message::Message as IrcMessage;
+use iron_protocol::IrcMessage;
 use std::io;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::debug;
 
-use super::{Message, ProtocolError};
+use super::{Message, MessageExt};
 
 const MAX_MESSAGE_LENGTH: usize = 8191;
 
@@ -57,7 +57,7 @@ impl Decoder for IrcCodec {
         } else if buf.len() > self.max_length {
             Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                ProtocolError::MessageTooLong,
+                "Message too long",
             ))
         } else {
             Ok(None)
@@ -74,7 +74,7 @@ impl Encoder<Message> for IrcCodec {
         if bytes.len() > self.max_length {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                ProtocolError::MessageTooLong,
+                "Message too long",
             ));
         }
 

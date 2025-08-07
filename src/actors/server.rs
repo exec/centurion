@@ -134,16 +134,17 @@ impl ServerActor {
         channels: Vec<String>,
         keys: Vec<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let state = self.server_state.read().await;
-        let conn = state.connections.get(&connection_id);
-        
-        if conn.is_none() {
-            return Ok(());
-        }
-        
-        let conn = conn.unwrap();
-        let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
-        drop(state);
+        let nick = {
+            let state = self.server_state.read().await;
+            let conn = state.connections.get(&connection_id);
+            
+            if conn.is_none() {
+                return Ok(());
+            }
+            
+            let conn = conn.unwrap();
+            conn.nickname.clone().unwrap_or_else(|| "*".to_string())
+        };
         
         for (i, channel_name) in channels.iter().enumerate() {
             let key = keys.get(i).cloned();
@@ -179,7 +180,7 @@ impl ServerActor {
                     tokio::spawn(actor.run());
                     
                     // Add to server state
-                    let mut state = self.server_state.write().await;
+                    let state = self.server_state.write().await;
                     state.channels.insert(
                         channel_name.clone(),
                         crate::state::Channel::new(channel_name.clone()),
@@ -205,10 +206,10 @@ impl ServerActor {
         channels: Vec<String>,
         message: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let channels = self.channels.read().await;
+        let channel_actors = self.channels.read().await;
         
         for channel_name in channels.iter() {
-            if let Some(channel_tx) = channels.get(channel_name) {
+            if let Some(channel_tx) = channel_actors.get(channel_name) {
                 let _ = channel_tx.send(ChannelMessage::Part {
                     connection_id,
                     message: message.clone(),
@@ -230,8 +231,7 @@ impl ServerActor {
             let channels = self.channels.read().await;
             if let Some(channel_tx) = channels.get(&target) {
                 let msg = Message::new("PRIVMSG")
-                    .add_param(target)
-                    .add_param(message);
+                    .with_params(vec![target, message]);
                 
                 let _ = channel_tx.send(ChannelMessage::Message {
                     sender_id: connection_id,
@@ -240,34 +240,47 @@ impl ServerActor {
             }
         } else {
             // Direct message to user
-            let state = self.server_state.read().await;
-            
-            // Find sender info
-            let sender = match state.connections.get(&connection_id) {
-                Some(conn) => conn,
-                None => return Ok(()),
+            let (sender_mask, sender_nick, sender_tx, server_name, target_id) = {
+                let state = self.server_state.read().await;
+                
+                // Find sender info
+                let sender = match state.connections.get(&connection_id) {
+                    Some(conn) => conn,
+                    None => return Ok(()),
+                };
+                
+                let sender_mask = sender.full_mask();
+                let sender_nick = sender.nickname.clone().unwrap_or_else(|| "*".to_string());
+                let sender_tx = sender.tx.clone();
+                let server_name = state.server_name.clone();
+                
+                // Find target by nickname
+                let target_id = state.nicknames.get(&target.to_lowercase()).map(|id| *id);
+                
+                (sender_mask, sender_nick, sender_tx, server_name, target_id)
             };
             
-            let sender_mask = sender.full_mask();
-            
-            // Find target by nickname
-            if let Some(&target_id) = state.nicknames.get(&target.to_lowercase()) {
-                if let Some(target_conn) = state.connections.get(&target_id) {
+            if let Some(target_id) = target_id {
+                let target_tx = {
+                    let state = self.server_state.read().await;
+                    state.connections.get(&target_id).map(|conn| conn.tx.clone())
+                };
+                
+                if let Some(tx) = target_tx {
                     let msg = Message::new("PRIVMSG")
                         .with_prefix(sender_mask)
-                        .add_param(target)
-                        .add_param(message);
+                        .with_params(vec![target, message]);
                     
-                    let _ = target_conn.tx.send(msg).await;
+                    let _ = tx.send(msg).await;
+                    return Ok(());
                 }
-            } else {
-                // No such nick
-                let nick = sender.nickname.clone().unwrap_or_else(|| "*".to_string());
-                let _ = sender.tx.send(Reply::NoSuchNick {
-                    nick,
-                    target,
-                }.to_message(&state.server_name)).await;
-            }
+            } 
+            
+            // No such nick or connection not found
+            let _ = sender_tx.send(Reply::NoSuchNick {
+                nick: sender_nick,
+                target,
+            }.to_message(&server_name)).await;
         }
         
         Ok(())
@@ -284,8 +297,7 @@ impl ServerActor {
             let channels = self.channels.read().await;
             if let Some(channel_tx) = channels.get(&target) {
                 let msg = Message::new("NOTICE")
-                    .add_param(target)
-                    .add_param(message);
+                    .with_params(vec![target, message]);
                 
                 let _ = channel_tx.send(ChannelMessage::Message {
                     sender_id: connection_id,
@@ -293,23 +305,32 @@ impl ServerActor {
                 }).await;
             }
         } else {
-            let state = self.server_state.read().await;
-            
-            let sender = match state.connections.get(&connection_id) {
-                Some(conn) => conn,
-                None => return Ok(()),
+            let (sender_mask, target_id) = {
+                let state = self.server_state.read().await;
+                
+                let sender = match state.connections.get(&connection_id) {
+                    Some(conn) => conn,
+                    None => return Ok(()),
+                };
+                
+                let sender_mask = sender.full_mask();
+                let target_id = state.nicknames.get(&target.to_lowercase()).map(|id| *id);
+                
+                (sender_mask, target_id)
             };
             
-            let sender_mask = sender.full_mask();
-            
-            if let Some(&target_id) = state.nicknames.get(&target.to_lowercase()) {
-                if let Some(target_conn) = state.connections.get(&target_id) {
+            if let Some(target_id) = target_id {
+                let target_tx = {
+                    let state = self.server_state.read().await;
+                    state.connections.get(&target_id).map(|conn| conn.tx.clone())
+                };
+                
+                if let Some(tx) = target_tx {
                     let msg = Message::new("NOTICE")
                         .with_prefix(sender_mask)
-                        .add_param(target)
-                        .add_param(message);
+                        .with_params(vec![target, message]);
                     
-                    let _ = target_conn.tx.send(msg).await;
+                    let _ = tx.send(msg).await;
                 }
             }
         }
@@ -331,14 +352,24 @@ impl ServerActor {
                 topic,
             }).await;
         } else {
-            let state = self.server_state.read().await;
-            if let Some(conn) = state.connections.get(&connection_id) {
-                let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
-                let _ = conn.tx.send(Reply::NoSuchChannel {
-                    nick,
-                    channel,
-                }.to_message(&state.server_name)).await;
-            }
+            let conn_info = {
+                let state = self.server_state.read().await;
+                state.connections.get(&connection_id).map(|conn| {
+                    (conn.nickname.clone().unwrap_or_else(|| "*".to_string()),
+                     conn.tx.clone(),
+                     state.server_name.clone())
+                })
+            };
+            
+            let (nick, tx, server_name) = match conn_info {
+                Some(info) => info,
+                None => return Ok(()),
+            };
+            
+            let _ = tx.send(Reply::NoSuchChannel {
+                nick,
+                channel,
+            }.to_message(&server_name)).await;
         }
         
         Ok(())
@@ -354,22 +385,35 @@ impl ServerActor {
         let channels = self.channels.read().await;
         
         if let Some(channel_tx) = channels.get(&channel) {
+            let channel_tx = channel_tx.clone();
+            drop(channels);
+            
             // Find target user ID
-            let state = self.server_state.read().await;
-            if let Some(&target_id) = state.nicknames.get(&user.to_lowercase()) {
+            let (target_id, nick, tx, server_name) = {
+                let state = self.server_state.read().await;
+                let target_id = state.nicknames.get(&user.to_lowercase()).map(|id| *id);
+                let (nick, tx, server_name) = if let Some(conn) = state.connections.get(&connection_id) {
+                    let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
+                    let tx = conn.tx.clone();
+                    let server_name = state.server_name.clone();
+                    (nick, tx, server_name)
+                } else {
+                    return Ok(());
+                };
+                (target_id, nick, tx, server_name)
+            };
+            
+            if let Some(target_id) = target_id {
                 let _ = channel_tx.send(ChannelMessage::Kick {
                     kicker_id: connection_id,
                     target_id,
                     reason,
                 }).await;
             } else {
-                if let Some(conn) = state.connections.get(&connection_id) {
-                    let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
-                    let _ = conn.tx.send(Reply::NoSuchNick {
-                        nick,
-                        target: user,
-                    }.to_message(&state.server_name)).await;
-                }
+                let _ = tx.send(Reply::NoSuchNick {
+                    nick,
+                    target: user,
+                }.to_message(&server_name)).await;
             }
         }
         
@@ -443,7 +487,8 @@ impl ServerActor {
         let nick = requester.nickname.clone().unwrap_or_else(|| "*".to_string());
         
         for target in targets {
-            if let Some(&target_id) = state.nicknames.get(&target.to_lowercase()) {
+            if let Some(target_id) = state.nicknames.get(&target.to_lowercase()) {
+                let target_id = *target_id;
                 if let Some(target_conn) = state.connections.get(&target_id) {
                     let target_nick = target_conn.nickname.clone().unwrap();
                     let username = target_conn.username.clone().unwrap_or_else(|| "*".to_string());
@@ -545,7 +590,7 @@ impl ServerActor {
         Ok(())
     }
     
-    async fn create_channel(&self, name: String, creator_id: u64) {
+    async fn create_channel(&self, name: String, _creator_id: u64) {
         let mut channels = self.channels.write().await;
         
         if channels.contains_key(&name) {
@@ -563,11 +608,12 @@ impl ServerActor {
         tokio::spawn(actor.run());
         
         // Add to server state
-        let mut state = self.server_state.write().await;
+        let state = self.server_state.write().await;
         state.channels.insert(
             name.clone(),
-            crate::state::Channel::new(name),
+            crate::state::Channel::new(name.clone()),
         );
+        drop(state);
         
         info!("Created channel: {}", name);
     }
@@ -576,7 +622,7 @@ impl ServerActor {
         let mut channels = self.channels.write().await;
         channels.remove(name);
         
-        let mut state = self.server_state.write().await;
+        let state = self.server_state.write().await;
         state.channels.remove(name);
         
         info!("Removed channel: {}", name);
@@ -600,8 +646,7 @@ impl ServerActor {
         
         let notice = Message::new("NOTICE")
             .with_prefix(server_name)
-            .add_param(target.clone())
-            .add_param(message);
+            .with_params(vec![target.clone(), message]);
         
         if crate::utils::is_channel(&target) {
             // Send to channel
@@ -620,7 +665,8 @@ impl ServerActor {
             }
         } else {
             // Send to specific user
-            if let Some(&target_id) = state.nicknames.get(&target.to_lowercase()) {
+            if let Some(target_id) = state.nicknames.get(&target.to_lowercase()) {
+                let target_id = *target_id;
                 if let Some(conn) = state.connections.get(&target_id) {
                     let _ = conn.tx.send(notice).await;
                 }

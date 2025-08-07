@@ -211,7 +211,7 @@ impl CapabilitySet {
         capabilities.insert(Capability::TypingClient);
         capabilities.insert(Capability::PreAway);
         
-        // Client-only tags support
+        // Client-only tags support (for reactions and replies)
         capabilities.insert(Capability::ClientTyping);
         capabilities.insert(Capability::ClientReply);
         capabilities.insert(Capability::ClientReact);

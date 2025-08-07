@@ -38,7 +38,7 @@ impl Connection {
     }
 
     pub fn is_registered(&self) -> bool {
-        self.registered && self.nickname.is_some() && self.username.is_some()
+        self.nickname.is_some() && self.username.is_some()
     }
 
     pub fn update_activity(&mut self) {

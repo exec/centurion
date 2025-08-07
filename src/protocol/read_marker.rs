@@ -182,8 +182,7 @@ impl ReadMarkerProcessor {
         
         Message::new("MARKREAD")
             .with_prefix(server_name)
-            .add_param(target)
-            .add_param(timestamp_str)
+            .with_params(vec![target, timestamp_str])
     }
     
     pub fn create_markread_fail(
@@ -199,10 +198,7 @@ impl ReadMarkerProcessor {
         };
         
         Message::new("FAIL")
-            .add_param("MARKREAD")
-            .add_param(error_code)
-            .add_param(context.to_string())
-            .add_param(error.to_string())
+            .with_params(vec!["MARKREAD".to_string(), error_code.to_string(), context.to_string(), error.to_string()])
     }
     
     pub fn validate_target(target: &str, user_id: u64, server_state: &crate::state::ServerState) -> bool {

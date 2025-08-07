@@ -158,6 +158,87 @@ impl Reply {
                         "Not enough parameters".to_string(),
                     ])
             }
+            Reply::NoSuchChannel { nick, channel } => {
+                Message::new("403")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        channel.clone(),
+                        "No such channel".to_string(),
+                    ])
+            }
+            Reply::Topic { nick, channel, topic } => {
+                Message::new("332")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        channel.clone(),
+                        topic.clone(),
+                    ])
+            }
+            Reply::NoTopic { nick, channel } => {
+                Message::new("331")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        channel.clone(),
+                        "No topic is set".to_string(),
+                    ])
+            }
+            Reply::NamReply { nick, symbol, channel, names } => {
+                let mut params = vec![
+                    nick.clone(),
+                    symbol.to_string(),
+                    channel.clone(),
+                ];
+                // Join all names into a single string
+                let names_str = names.join(" ");
+                params.push(names_str);
+                Message::new("353")
+                    .with_prefix(server_name)
+                    .with_params(params)
+            }
+            Reply::EndOfNames { nick, channel } => {
+                Message::new("366")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        channel.clone(),
+                        "End of /NAMES list".to_string(),
+                    ])
+            }
+            Reply::MotdStart { nick, server } => {
+                Message::new("375")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        format!("- {} Message of the day -", server),
+                    ])
+            }
+            Reply::Motd { nick, line } => {
+                Message::new("372")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        format!("- {}", line),
+                    ])
+            }
+            Reply::EndOfMotd { nick } => {
+                Message::new("376")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        "End of /MOTD command".to_string(),
+                    ])
+            }
+            Reply::NoMotd { nick } => {
+                Message::new("422")
+                    .with_prefix(server_name)
+                    .with_params(vec![
+                        nick.clone(),
+                        "MOTD File is missing".to_string(),
+                    ])
+            }
             _ => {
                 Message::new("NOTICE")
                     .with_prefix(server_name)

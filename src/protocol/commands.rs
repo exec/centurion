@@ -150,6 +150,15 @@ impl Command {
                     Command::Unknown(command.to_string(), params)
                 }
             }
+            "TAGMSG" => {
+                if let Some(target) = params.first() {
+                    Command::TagMsg {
+                        target: target.clone(),
+                    }
+                } else {
+                    Command::Unknown(command.to_string(), params)
+                }
+            }
             "CAP" => {
                 if let Some(subcommand) = params.first() {
                     Command::Cap {
@@ -163,6 +172,13 @@ impl Command {
             "AUTHENTICATE" => {
                 if let Some(data) = params.first() {
                     Command::Authenticate(data.clone())
+                } else {
+                    Command::Unknown(command.to_string(), params)
+                }
+            }
+            "WHOIS" => {
+                if !params.is_empty() {
+                    Command::Whois(params)
                 } else {
                     Command::Unknown(command.to_string(), params)
                 }

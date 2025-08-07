@@ -7,6 +7,7 @@ use crate::protocol::{Command, Message, Reply};
 use crate::state::ServerState;
 
 pub mod handlers;
+pub mod standard_replies;
 
 pub struct CommandProcessor {
     server_state: Arc<RwLock<ServerState>>,
@@ -25,6 +26,9 @@ impl CommandProcessor {
         debug!("Processing command for connection {}: {:?}", connection_id, command);
         
         match command {
+            Command::Nick(new_nick) => {
+                handlers::nick::handle_nick(self.server_state.clone(), connection_id, new_nick).await
+            }
             Command::Join(channels, keys) => {
                 handlers::join::handle_join(self.server_state.clone(), connection_id, channels, keys).await
             }
@@ -35,34 +39,55 @@ impl CommandProcessor {
                 handlers::privmsg::handle_privmsg(self.server_state.clone(), connection_id, target, message).await
             }
             Command::Notice { target, message } => {
-                handlers::notice::handle_notice(self.server_state.clone(), connection_id, target, message).await
+                handlers::notice::handle_notice(self.server_state.clone(), connection_id, vec![target, message]).await
             }
             Command::Who(mask) => {
-                handlers::who::handle_who(self.server_state.clone(), connection_id, mask).await
+                let params = mask.map_or(vec![], |m| vec![m]);
+                handlers::who::handle_who(self.server_state.clone(), connection_id, params).await
             }
             Command::Whois(targets) => {
                 handlers::whois::handle_whois(self.server_state.clone(), connection_id, targets).await
             }
             Command::Topic { channel, topic } => {
-                handlers::topic::handle_topic(self.server_state.clone(), connection_id, channel, topic).await
+                let mut params = vec![channel];
+                if let Some(t) = topic {
+                    params.push(t);
+                }
+                handlers::topic::handle_topic(self.server_state.clone(), connection_id, params).await
             }
             Command::Mode { target, modes, params } => {
-                handlers::mode::handle_mode(self.server_state.clone(), connection_id, target, modes, params).await
+                let mut all_params = vec![target];
+                if let Some(m) = modes {
+                    all_params.push(m);
+                }
+                all_params.extend(params);
+                handlers::mode::handle_mode(self.server_state.clone(), connection_id, all_params).await
             }
             Command::Kick { channel, user, reason } => {
-                handlers::kick::handle_kick(self.server_state.clone(), connection_id, channel, user, reason).await
+                let mut params = vec![channel, user];
+                if let Some(r) = reason {
+                    params.push(r);
+                }
+                handlers::kick::handle_kick(self.server_state.clone(), connection_id, params).await
             }
             Command::List(channels) => {
-                handlers::list::handle_list(self.server_state.clone(), connection_id, channels).await
+                let params = channels.unwrap_or_default();
+                handlers::list::handle_list(self.server_state.clone(), connection_id, params).await
             }
             Command::Names(channels) => {
                 handlers::names::handle_names(self.server_state.clone(), connection_id, channels).await
             }
             Command::Motd(server) => {
-                handlers::motd::handle_motd(self.server_state.clone(), connection_id, server).await
+                let params = server.map_or(vec![], |s| vec![s]);
+                handlers::motd::handle_motd(self.server_state.clone(), connection_id, params).await
             }
             Command::Oper { name, password } => {
-                handlers::oper::handle_oper(self.server_state.clone(), connection_id, name, password).await
+                handlers::oper::handle_oper(self.server_state.clone(), connection_id, vec![name, password]).await
+            }
+            Command::ChatHistory { subcommand, target, params } => {
+                let mut full_params = vec![subcommand, target];
+                full_params.extend(params);
+                handlers::chathistory::handle_chathistory(self.server_state.clone(), connection_id, full_params).await
             }
             _ => {
                 let state = self.server_state.read().await;

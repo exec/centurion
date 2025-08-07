@@ -1,9 +1,9 @@
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use argon2::{Argon2, PasswordHash};
 use argon2::password_hash::{rand_core::OsRng, SaltString, PasswordHasher as ArgonPasswordHasher};
 use base64::{Engine as _, engine::general_purpose};
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
-use sha2::{Sha256, Digest};
+use sha2::Sha256;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -201,7 +201,7 @@ pub async fn authenticate(
         AuthMethod::Sasl { mechanism, data } => {
             match mechanism {
                 SaslMechanism::Plain => {
-                    let mut auth = SaslAuthenticator::new();
+                    let auth = SaslAuthenticator::new();
                     let (_, password) = auth.authenticate_plain(&data)?;
                     LocalPasswordHasher::verify_password(&password, stored_hash)
                 }

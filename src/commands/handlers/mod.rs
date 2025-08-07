@@ -14,3 +14,6 @@ pub mod list;
 pub mod names;
 pub mod motd;
 pub mod oper;
+pub mod nick;
+pub mod tagmsg;
+pub mod chathistory;

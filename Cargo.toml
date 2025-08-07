@@ -13,8 +13,10 @@ categories = ["network-programming", "web-programming"]
 readme = "README.md"
 
 [dependencies]
+# Shared IRC protocol library
+iron-protocol = { path = "../iron-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+
 tokio = { version = "1.42", features = ["full"] }
-irc-proto = "0.15"
 bytes = "1.9"
 dashmap = "6.1"
 tracing = "0.1"
@@ -44,15 +46,24 @@ crossbeam-channel = "0.5"
 num_cpus = "1.16"
 governor = "0.8"
 nonzero_ext = "0.3"
+
+# Crypto dependencies (needed by auth modules)
 base64 = "0.22"
 sha2 = "0.10"
 hmac = "0.12"
 pbkdf2 = "0.12"
 
+# Remove duplicated dependencies (now provided by iron-protocol)
+# irc-proto = "0.15"  # Replaced by iron-protocol
+
 [dev-dependencies]
 mockall = "0.13"
 proptest = "1.6"
 criterion = "0.5"
+
+[features]
+default = ["bleeding-edge"]
+bleeding-edge = ["iron-protocol/bleeding-edge"]
 
 [[bench]]
 name = "parser_benchmarks"

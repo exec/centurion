@@ -149,8 +149,7 @@ impl MultilineBatch {
         
         for (i, line) in lines.iter().enumerate() {
             let mut msg = Message::new(&self.command)
-                .add_param(self.target.clone())
-                .add_param(line.to_string());
+                .with_params(vec![self.target.clone(), line.to_string()]);
             
             // Add tags to first message only
             if i == 0 {
@@ -234,8 +233,7 @@ impl MultilineProcessor {
         let content = batch.compose_message();
         
         let mut msg = Message::new(&batch.command)
-            .add_param(batch.target.clone())
-            .add_param(content);
+            .with_params(vec![batch.target.clone(), content]);
         
         // Add original tags
         for (key, value) in &batch.tags {
@@ -263,10 +261,7 @@ pub fn create_multiline_fail_message(
     };
     
     Message::new("FAIL")
-        .add_param("BATCH")
-        .add_param(error_code)
-        .add_param(context.to_string())
-        .add_param(error.to_string())
+        .with_params(vec!["BATCH".to_string(), error_code.to_string(), context.to_string(), error.to_string()])
 }
 
 pub fn is_multiline_batch(batch_type: &str) -> bool {

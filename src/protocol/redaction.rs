@@ -180,14 +180,14 @@ impl RedactionManager {
         reason: Option<String>,
         redacted_by_mask: String,
     ) -> Message {
-        let mut msg = Message::new("REDACT")
-            .with_prefix(redacted_by_mask)
-            .add_param(target)
-            .add_param(msgid);
-        
+        let mut params = vec![target, msgid];
         if let Some(reason_text) = reason {
-            msg = msg.add_param(reason_text);
+            params.push(reason_text);
         }
+        
+        let msg = Message::new("REDACT")
+            .with_prefix(redacted_by_mask)
+            .with_params(params);
         
         msg
     }
@@ -241,10 +241,7 @@ pub fn create_redaction_fail_message(
     };
     
     Message::new("FAIL")
-        .add_param("REDACT")
-        .add_param(error_code)
-        .add_param(context.to_string())
-        .add_param(error.to_string())
+        .with_params(vec!["REDACT".to_string(), error_code.to_string(), context.to_string(), error.to_string()])
 }
 
 #[cfg(test)]

@@ -7,12 +7,15 @@ pub mod connection;
 pub use self::channel::{Channel, ChannelMember};
 pub use self::connection::Connection;
 
+use crate::history::{HistoryStorage};
+
 pub struct ServerState {
     pub connections: DashMap<u64, Connection>,
     pub channels: DashMap<String, Channel>,
     pub nicknames: DashMap<String, u64>,
     next_connection_id: AtomicU64,
     pub server_name: String,
+    pub history: HistoryStorage,
 }
 
 impl ServerState {
@@ -23,6 +26,7 @@ impl ServerState {
             nicknames: DashMap::new(),
             next_connection_id: AtomicU64::new(1),
             server_name: "ironchatd.local".to_string(),
+            history: HistoryStorage::default(),
         }
     }
 

@@ -128,7 +128,7 @@ impl ChannelActor {
         };
         
         // Check channel modes
-        if channel.modes.contains('k') {
+        if channel.modes.contains(&'k') {
             if channel.key.as_ref() != key.as_ref() {
                 let _ = conn.tx.send(Reply::BadChannelKey {
                     nick: nick.clone(),
@@ -138,7 +138,7 @@ impl ChannelActor {
             }
         }
         
-        if channel.modes.contains('l') {
+        if channel.modes.contains(&'l') {
             if let Some(limit) = channel.limit {
                 if channel.member_count() >= limit {
                     let _ = conn.tx.send(Reply::ChannelIsFull {
@@ -162,7 +162,7 @@ impl ChannelActor {
         // Send join message to all members
         let join_msg = Message::new("JOIN")
             .with_prefix(conn.full_mask())
-            .add_param(self.name.clone());
+            .with_params(vec![self.name.clone()]);
         
         self.broadcast_message(join_msg.clone(), None).await;
         
@@ -194,7 +194,7 @@ impl ChannelActor {
             None => return,
         };
         
-        let mut channel = self.channel.write().await;
+        let channel = self.channel.write().await;
         if !channel.remove_member(connection_id) {
             return;
         }
@@ -203,15 +203,14 @@ impl ChannelActor {
         drop(state);
         
         // Send part message to all members (including the parting user)
+        let mut params = vec![self.name.clone()];
+        if let Some(msg) = message {
+            params.push(msg);
+        }
+        
         let part_msg = Message::new("PART")
             .with_prefix(conn.full_mask())
-            .add_param(self.name.clone());
-        
-        let part_msg = if let Some(msg) = message {
-            part_msg.add_param(msg)
-        } else {
-            part_msg
-        };
+            .with_params(params);
         
         self.broadcast_message(part_msg, None).await;
         
@@ -239,12 +238,12 @@ impl ChannelActor {
         }
         
         // Check channel modes
-        if channel.modes.contains('n') && !channel.is_member(sender_id) {
+        if channel.modes.contains(&'n') && !channel.is_member(sender_id) {
             // No external messages
             return;
         }
         
-        if channel.modes.contains('m') && !channel.is_operator(sender_id) {
+        if channel.modes.contains(&'m') && !channel.is_operator(sender_id) {
             // Moderated channel - only ops can speak
             let state = self.server_state.read().await;
             if let Some(conn) = state.connections.get(&sender_id) {
@@ -261,9 +260,12 @@ impl ChannelActor {
         
         // Add sender prefix if not present
         if message.prefix.is_none() {
-            let state = self.server_state.read().await;
-            if let Some(conn) = state.connections.get(&sender_id) {
-                message.prefix = Some(conn.full_mask());
+            let full_mask = {
+                let state = self.server_state.read().await;
+                state.connections.get(&sender_id).map(|conn| conn.full_mask())
+            };
+            if let Some(mask) = full_mask {
+                message.prefix = Some(mask);
             }
         }
         
@@ -280,7 +282,7 @@ impl ChannelActor {
         }
         
         // Check if topic is locked to ops
-        if channel.modes.contains('t') && !channel.is_operator(connection_id) {
+        if channel.modes.contains(&'t') && !channel.is_operator(connection_id) {
             let state = self.server_state.read().await;
             if let Some(conn) = state.connections.get(&connection_id) {
                 let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
@@ -314,8 +316,7 @@ impl ChannelActor {
         // Broadcast topic change
         let topic_msg = Message::new("TOPIC")
             .with_prefix(setter_mask)
-            .add_param(self.name.clone())
-            .add_param(topic.unwrap_or_default());
+            .with_params(vec![self.name.clone(), topic.unwrap_or_default()]);
         
         self.broadcast_message(topic_msg, None).await;
     }
@@ -370,24 +371,24 @@ impl ChannelActor {
         self.channel.write().await.remove_member(target_id);
         
         // Send kick message
-        let mut kick_msg = Message::new("KICK")
-            .with_prefix(kicker_mask)
-            .add_param(self.name.clone())
-            .add_param(target_nick);
-        
+        let mut params = vec![self.name.clone(), target_nick];
         if let Some(r) = reason {
-            kick_msg = kick_msg.add_param(r);
+            params.push(r);
         }
+        
+        let kick_msg = Message::new("KICK")
+            .with_prefix(kicker_mask)
+            .with_params(params);
         
         self.broadcast_message(kick_msg, None).await;
     }
     
-    async fn handle_set_mode(&self, connection_id: u64, modes: String, params: Vec<String>) {
+    async fn handle_set_mode(&self, _connection_id: u64, modes: String, params: Vec<String>) {
         // TODO: Implement mode parsing and setting
         debug!("Mode change requested: {} {}", modes, params.join(" "));
     }
     
-    async fn handle_invite(&self, inviter_id: u64, target_id: u64) {
+    async fn handle_invite(&self, inviter_id: u64, _target_id: u64) {
         let channel = self.channel.read().await;
         
         // Check if inviter is a member
@@ -396,7 +397,7 @@ impl ChannelActor {
         }
         
         // Check if channel is invite-only
-        if channel.modes.contains('i') && !channel.is_operator(inviter_id) {
+        if channel.modes.contains(&'i') && !channel.is_operator(inviter_id) {
             let state = self.server_state.read().await;
             if let Some(conn) = state.connections.get(&inviter_id) {
                 let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
@@ -414,29 +415,44 @@ impl ChannelActor {
     
     async fn handle_get_info(&self, requester_id: u64) {
         // Send channel information to requester
-        let channel = self.channel.read().await;
-        let state = self.server_state.read().await;
+        let conn_info = {
+            let state = self.server_state.read().await;
+            state.connections.get(&requester_id).map(|conn| {
+                (conn.nickname.clone().unwrap_or_else(|| "*".to_string()),
+                 conn.tx.clone(),
+                 state.server_name.clone())
+            })
+        };
         
-        if let Some(conn) = state.connections.get(&requester_id) {
-            let nick = conn.nickname.clone().unwrap_or_else(|| "*".to_string());
-            
-            // Send channel mode
-            let _ = conn.tx.send(Reply::ChannelModeIs {
-                nick: nick.clone(),
-                channel: self.name.clone(),
-                modes: format!("+{}", channel.modes),
-                params: vec![],
-            }.to_message(&state.server_name)).await;
-            
-            // Send member count in LIST format
+        let (nick, tx, server_name) = match conn_info {
+            Some(info) => info,
+            None => return,
+        };
+        
+        let (modes, topic, member_count, channel_name) = {
+            let channel = self.channel.read().await;
+            let modes = format!("+{}", channel.modes.iter().collect::<String>());
             let topic = channel.topic.clone().unwrap_or_default();
-            let _ = conn.tx.send(Reply::List {
-                nick,
-                channel: self.name.clone(),
-                visible: channel.member_count(),
-                topic,
-            }.to_message(&state.server_name)).await;
-        }
+            let member_count = channel.member_count();
+            let channel_name = self.name.clone();
+            (modes, topic, member_count, channel_name)
+        };
+        
+        // Send channel mode
+        let _ = tx.send(Reply::ChannelModeIs {
+            nick: nick.clone(),
+            channel: channel_name.clone(),
+            modes,
+            params: vec![],
+        }.to_message(&server_name)).await;
+        
+        // Send member count in LIST format
+        let _ = tx.send(Reply::List {
+            nick,
+            channel: channel_name,
+            visible: member_count,
+            topic,
+        }.to_message(&server_name)).await;
     }
     
     async fn broadcast_message(&self, message: Message, exclude: Option<u64>) {

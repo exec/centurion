@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -124,10 +125,12 @@ impl ConnectionActor {
         
         // Update activity timestamp
         {
-            let state = self.server_state.write().await;
+            let mut state = self.server_state.write().await;
             if let Some(mut conn) = state.connections.get_mut(&self.id) {
                 conn.update_activity();
+                drop(conn);
             }
+            drop(state);
         }
         
         let command = Command::parse(&msg.command, msg.params);
@@ -137,6 +140,7 @@ impl ConnectionActor {
                 self.handle_cap(subcommand, params).await?;
             }
             Command::Nick(nick) => {
+                // Handle NICK locally to avoid interfering with CAP negotiation
                 self.handle_nick(nick).await?;
             }
             Command::User { username, realname } => {
@@ -159,7 +163,10 @@ impl ConnectionActor {
                     }).await?;
                 } else {
                     // Handle other commands through command processor
-                    self.process_command(command).await?;
+                    let tags = msg.tags.clone().into_iter()
+                        .filter_map(|(k, v)| v.map(|value| (k, value)))
+                        .collect::<HashMap<String, String>>();
+                    self.process_command(command, tags).await?;
                 }
             }
         }
@@ -171,42 +178,15 @@ impl ConnectionActor {
         match subcommand.to_uppercase().as_str() {
             "LS" => {
                 self.capabilities_negotiating = true;
+                // Only advertise the core capabilities that our client actually supports
                 let caps = vec![
-                    // Core IRCv3 capabilities (Ratified)
+                    "sasl",
                     "message-tags",
                     "server-time",
-                    "account-notify",
-                    "account-tag", 
-                    "away-notify",
                     "batch",
-                    "cap-notify",
-                    "chghost",
                     "echo-message",
-                    "extended-join",
-                    "invite-notify",
-                    "labeled-response",
-                    "monitor",
-                    "multi-prefix",
-                    "sasl",
-                    "setname",
-                    "standard-replies",
-                    "userhost-in-names",
-                    "bot",
-                    "utf8only",
-                    "sts",
-                    "chathistory",
-                    
-                    // 2024 Bleeding-edge capabilities
-                    "draft/message-redaction",
-                    "account-extban",
-                    "draft/metadata-2",
-                    
-                    // Draft capabilities (Work in Progress)
-                    "draft/multiline=max-bytes=4096,max-lines=100",
-                    "draft/read-marker", 
-                    "draft/relaymsg",
-                    "draft/typing",
-                    "draft/pre-away",
+                    "+draft/react",
+                    "+draft/reply",
                 ];
                 
                 let cap_string = caps.join(" ");
@@ -223,22 +203,21 @@ impl ConnectionActor {
                     for cap in requested_caps {
                         // Check if we support this capability
                         let cap_name = cap.split('=').next().unwrap_or(cap); // Handle capabilities with values
-                        if ["message-tags", "server-time", "account-notify", "account-tag", 
-                            "away-notify", "batch", "cap-notify", "chghost", "echo-message", 
-                            "extended-join", "invite-notify", "labeled-response", "monitor",
-                            "multi-prefix", "sasl", "setname", "standard-replies", "userhost-in-names",
-                            "bot", "utf8only", "sts", "chathistory",
-                            // 2024 bleeding-edge capabilities
-                            "draft/message-redaction", "account-extban", "draft/metadata-2",
-                            // Draft capabilities
-                            "draft/multiline", "draft/read-marker", "draft/relaymsg", 
-                            "draft/typing", "draft/pre-away"].contains(&cap_name) {
+                        if ["sasl", "message-tags", "server-time", "batch", "echo-message", "+draft/react", "+draft/reply"].contains(&cap_name) {
                             ack_caps.push(cap);
                             self.capabilities_enabled.push(cap.to_string());
                         }
                     }
                     
                     if !ack_caps.is_empty() {
+                        // Update capabilities in server state
+                        {
+                            let mut state = self.server_state.write().await;
+                            if let Some(mut conn) = state.connections.get_mut(&self.id) {
+                                conn.capabilities = self.capabilities_enabled.clone();
+                            };
+                        }
+                        
                         self.send_message(
                             Message::new("CAP")
                                 .with_params(vec!["*".to_string(), "ACK".to_string(), ack_caps.join(" ")])
@@ -271,10 +250,13 @@ impl ConnectionActor {
             return Ok(());
         }
         
-        let state = self.server_state.write().await;
+        let nickname_available = {
+            let state = self.server_state.write().await;
+            state.is_nickname_available(&nick)
+        };
         
         // Check if nickname is available
-        if !state.is_nickname_available(&nick) {
+        if !nickname_available {
             self.send_reply(Reply::NicknameInUse {
                 nick: "*".to_string(),
                 attempted: nick,
@@ -283,58 +265,106 @@ impl ConnectionActor {
         }
         
         // Update connection info
-        if let Some(mut conn) = state.connections.get_mut(&self.id) {
-            // Unregister old nickname if any
-            if let Some(old_nick) = &conn.nickname {
-                state.unregister_nickname(old_nick);
+        {
+            let mut state = self.server_state.write().await;
+            if let Some(mut conn) = state.connections.get_mut(&self.id) {
+                // Unregister old nickname if any
+                if let Some(old_nick) = &conn.nickname {
+                    state.unregister_nickname(old_nick);
+                }
+                
+                // Register new nickname
+                if state.register_nickname(nick.clone(), self.id) {
+                    conn.nickname = Some(nick);
+                } else {
+                    // Registration failed - nickname taken by someone else now
+                    return Ok(());
+                }
+                drop(conn);
             }
-            
-            // Register new nickname
-            if state.register_nickname(nick.clone(), self.id) {
-                conn.nickname = Some(nick);
-                drop(state);
-                self.check_registration().await?;
-            }
+            drop(state);
         }
+        
+        // Now check registration without holding the lock
+        self.check_registration().await?;
         
         Ok(())
     }
     
     async fn handle_user(&mut self, username: String, realname: String) -> Result<(), Box<dyn std::error::Error>> {
-        let state = self.server_state.write().await;
+        let conn_info = {
+            let state = self.server_state.write().await;
+            state.connections.get(&self.id).map(|conn| conn.username.is_some())
+        };
         
-        if let Some(mut conn) = state.connections.get_mut(&self.id) {
-            if conn.username.is_some() {
-                self.send_reply(Reply::AlreadyRegistered {
-                    nick: conn.nickname.clone().unwrap_or_else(|| "*".to_string()),
-                }).await?;
-                return Ok(());
-            }
+        let already_registered = match conn_info {
+            Some(registered) => registered,
+            None => return Ok(()),
+        };
+        
+        if already_registered {
+            let nick = {
+                let state = self.server_state.read().await;
+                state.connections.get(&self.id)
+                    .map(|conn| conn.nickname.clone().unwrap_or_else(|| "*".to_string()))
+                    .unwrap_or_else(|| "*".to_string())
+            };
             
-            conn.username = Some(username);
-            conn.realname = Some(realname);
-            drop(state);
-            self.check_registration().await?;
+            self.send_reply(Reply::AlreadyRegistered { nick }).await?;
+            return Ok(());
         }
+        
+        // Update connection info
+        {
+            let mut state = self.server_state.write().await;
+            if let Some(mut conn) = state.connections.get_mut(&self.id) {
+                conn.username = Some(username);
+                conn.realname = Some(realname);
+                drop(conn);
+            }
+            drop(state);
+        }
+        
+        self.check_registration().await?;
         
         Ok(())
     }
     
     async fn check_registration(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        debug!("check_registration: registered={}, capabilities_negotiating={}", self.registered, self.capabilities_negotiating);
         if self.registered || self.capabilities_negotiating {
             return Ok(());
         }
         
-        let state = self.server_state.read().await;
-        let conn = state.connections.get(&self.id);
+        let registration_info = {
+            let state = self.server_state.read().await;
+            state.connections.get(&self.id).and_then(|conn| {
+                debug!("Connection state: nickname={:?}, username={:?}, registered={}", 
+                       conn.nickname, conn.username, conn.registered);
+                if conn.is_registered() {
+                    debug!("Connection is registered, proceeding with welcome");
+                    Some((conn.nickname.clone().unwrap(), state.server_name.clone()))
+                } else {
+                    debug!("Connection not fully registered yet");
+                    None
+                }
+            })
+        };
         
-        if let Some(conn) = conn {
-            if conn.is_registered() {
-                let nick = conn.nickname.clone().unwrap();
-                let server_name = state.server_name.clone();
-                drop(state);
-                
-                self.registered = true;
+        let (nick, server_name) = match registration_info {
+            Some(info) => info,
+            None => return Ok(()),
+        };
+        
+        self.registered = true;
+        
+        // Update registered status in server state
+        {
+            let state = self.server_state.write().await;
+            if let Some(mut conn) = state.connections.get_mut(&self.id) {
+                conn.registered = true;
+            };
+        }
                 
                 // Send welcome messages
                 self.send_reply(Reply::Welcome {
@@ -399,8 +429,16 @@ impl ConnectionActor {
                         "BOT=B".to_string(), // Bot mode support
                     ],
                 }).await?;
-            }
-        }
+                
+                // Send MOTD
+                let motd_messages = crate::commands::handlers::motd::send_motd(
+                    self.server_state.clone(),
+                    self.id
+                ).await?;
+                
+                for msg in motd_messages {
+                    self.send_message(msg).await?;
+                }
         
         Ok(())
     }
@@ -430,17 +468,97 @@ impl ConnectionActor {
         Ok(())
     }
     
-    async fn process_command(&mut self, command: Command) -> Result<(), Box<dyn std::error::Error>> {
+    async fn process_command(&mut self, command: Command, msg_tags: HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
         // Forward to command processor
         match command {
             Command::Join(channels, keys) => {
                 // Handle JOIN command
+                let responses = crate::commands::handlers::join::handle_join(
+                    self.server_state.clone(),
+                    self.id,
+                    channels,
+                    keys
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
             }
             Command::Part(channels, message) => {
                 // Handle PART command
+                let responses = crate::commands::handlers::part::handle_part(
+                    self.server_state.clone(),
+                    self.id,
+                    channels,
+                    message
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
             }
             Command::Privmsg { target, message } => {
                 // Handle PRIVMSG command
+                let responses = crate::commands::handlers::privmsg::handle_privmsg(
+                    self.server_state.clone(),
+                    self.id,
+                    target,
+                    message
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::TagMsg { target } => {
+                // Handle TAGMSG command (for reactions)
+                if !self.capabilities_enabled.contains(&"+draft/react".to_string()) {
+                    self.send_reply(Reply::UnknownCommand {
+                        nick: self.get_nick().await,
+                        command: "TAGMSG".to_string(),
+                    }).await?;
+                    return Ok(());
+                }
+                
+                // Get the message tags from the incoming message
+                let tags = msg_tags;
+                
+                // Forward the TAGMSG to the target
+                let responses = crate::commands::handlers::tagmsg::handle_tagmsg(
+                    self.server_state.clone(),
+                    self.id,
+                    target,
+                    tags
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::ChatHistory { subcommand, target, params } => {
+                // Handle CHATHISTORY command
+                let mut full_params = vec![subcommand, target];
+                full_params.extend(params);
+                let responses = crate::commands::handlers::chathistory::handle_chathistory(
+                    self.server_state.clone(),
+                    self.id,
+                    full_params
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Whois(targets) => {
+                let responses = crate::commands::handlers::whois::handle_whois(
+                    self.server_state.clone(),
+                    self.id,
+                    targets
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
             }
             // ... handle other commands
             _ => {
@@ -502,7 +620,7 @@ impl ConnectionActor {
     }
     
     async fn cleanup(&mut self) {
-        let mut state = self.server_state.write().await;
+        let state = self.server_state.write().await;
         
         // Remove from channels
         // TODO: Implement channel cleanup

@@ -1,6 +1,6 @@
 use crate::db::{Database, DatabaseError, models::User};
 
-pub async fn create_user(db: &Database, user: &User) -> Result<User, DatabaseError> {
+pub async fn create_user(_db: &Database, user: &User) -> Result<User, DatabaseError> {
     // TODO: Implement database user creation
     Ok(user.clone())
 }

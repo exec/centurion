@@ -210,7 +210,7 @@ impl TypingProcessor {
     ) -> Message {
         Message::new("TAGMSG")
             .with_prefix(sender_mask)
-            .add_param(target)
+            .with_params(vec![target])
             .add_tag("+typing".to_string(), Some(state.as_str().to_string()))
     }
     
@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn test_typing_message_extraction() {
         let mut msg = Message::new("TAGMSG")
-            .add_param("#channel".to_string())
+            .with_params(vec!["#channel".to_string()])
             .add_tag("+typing".to_string(), Some("active".to_string()));
         
         let typing_state = TypingProcessor::extract_typing_from_message(&msg);
