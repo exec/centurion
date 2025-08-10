@@ -1,5 +1,5 @@
 use bytes::{Buf, BufMut, BytesMut};
-use iron_protocol::IrcMessage;
+use legion_protocol::IrcMessage;
 use std::io;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::debug;

@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::time::{interval, timeout};
 use tokio_stream::StreamExt;
 use tokio_util::codec::Framed;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, trace};
 
 use crate::protocol::{Command, IrcCodec, Message, Reply};
 use crate::security::RateLimiter;
@@ -178,6 +178,14 @@ impl ConnectionActor {
         match subcommand.to_uppercase().as_str() {
             "LS" => {
                 self.capabilities_negotiating = true;
+                
+                // Parse CAP LS version (default to 301 if not specified)
+                let cap_version = if !params.is_empty() {
+                    params[0].parse::<u16>().unwrap_or(301)
+                } else {
+                    301
+                };
+                
                 // Only advertise the core capabilities that our client actually supports
                 let caps = vec![
                     "sasl",
@@ -185,31 +193,52 @@ impl ConnectionActor {
                     "server-time",
                     "batch",
                     "echo-message",
-                    "+draft/react",
-                    "+draft/reply",
                 ];
                 
                 let cap_string = caps.join(" ");
-                self.send_message(
-                    Message::new("CAP")
-                        .with_params(vec!["*".to_string(), "LS".to_string(), cap_string])
-                ).await?;
+                
+                // For now, use the simple 301 format to avoid breaking clients
+                let response = Message::new("CAP")
+                    .with_params(vec!["*".to_string(), "LS".to_string(), cap_string]);
+                
+                self.send_message(response).await?;
             }
             "REQ" => {
-                if let Some(requested) = params.first() {
-                    let requested_caps: Vec<&str> = requested.split_whitespace().collect();
+                debug!("CAP REQ received with params: {:?}", params);
+                
+                // Handle both single parameter (with all caps) and multiple parameters
+                let requested_caps_str = if params.len() == 1 {
+                    // Single parameter: "CAP REQ :cap1 cap2 cap3"
+                    params[0].clone()
+                } else if params.is_empty() {
+                    // No capabilities requested
+                    String::new()
+                } else {
+                    // Multiple parameters: "CAP REQ cap1 cap2 cap3"
+                    params.join(" ")
+                };
+                
+                debug!("Requested capabilities string: '{}'", requested_caps_str);
+                
+                if !requested_caps_str.is_empty() {
+                    let requested_caps: Vec<&str> = requested_caps_str.split_whitespace().collect();
+                    debug!("Parsed capabilities: {:?}", requested_caps);
+                    
                     let mut ack_caps = Vec::new();
                     
                     for cap in requested_caps {
                         // Check if we support this capability
                         let cap_name = cap.split('=').next().unwrap_or(cap); // Handle capabilities with values
-                        if ["sasl", "message-tags", "server-time", "batch", "echo-message", "+draft/react", "+draft/reply"].contains(&cap_name) {
-                            ack_caps.push(cap);
+                        if ["sasl", "message-tags", "server-time", "batch", "echo-message"].contains(&cap_name) {
+                            ack_caps.push(cap.to_string());
                             self.capabilities_enabled.push(cap.to_string());
                         }
                     }
                     
                     if !ack_caps.is_empty() {
+                        debug!("ACKing capabilities: {:?}", ack_caps);
+                        info!("Client {} enabled capabilities: {:?}", self.id, ack_caps);
+                        
                         // Update capabilities in server state
                         {
                             let mut state = self.server_state.write().await;
@@ -223,9 +252,10 @@ impl ConnectionActor {
                                 .with_params(vec!["*".to_string(), "ACK".to_string(), ack_caps.join(" ")])
                         ).await?;
                     } else {
+                        debug!("NAKing all requested capabilities: {}", requested_caps_str);
                         self.send_message(
                             Message::new("CAP")
-                                .with_params(vec!["*".to_string(), "NAK".to_string(), requested.clone()])
+                                .with_params(vec!["*".to_string(), "NAK".to_string(), requested_caps_str])
                         ).await?;
                     }
                 }
@@ -388,45 +418,26 @@ impl ConnectionActor {
                     servername: server_name,
                     version: "ironchatd-0.1.0".to_string(),
                     usermodes: "aiwroOs".to_string(),
-                    chanmodes: "beI,k,l,imnpst".to_string(),
+                    chanmodes: "k,l,imnpst".to_string(),
                 }).await?;
                 
-                // Send ISUPPORT
+                // Send ISUPPORT - Only advertise features we actually implement
                 self.send_reply(Reply::ISupport {
                     nick,
                     tokens: vec![
                         "CASEMAPPING=ascii".to_string(),
-                        "CHANMODES=beI,k,l,imnpst".to_string(),
-                        "CHANTYPES=#&".to_string(),
-                        "MODES=12".to_string(),
+                        "CHANMODES=,k,l,imnpst".to_string(),  // No ban/except/invite modes implemented yet
+                        "CHANTYPES=#&!+".to_string(),  // All supported channel types
+                        "MODES=3".to_string(),  // Max 3 mode changes per command (RFC 2812 limit)
                         "NICKLEN=30".to_string(),
                         "CHANNELLEN=50".to_string(),
                         "TOPICLEN=390".to_string(),
                         "KICKLEN=255".to_string(),
-                        "AWAYLEN=255".to_string(),
-                        "MAXTARGETS=4".to_string(),
-                        "MAXLIST=beI:100".to_string(),
-                        "MAXCHANNELS=50".to_string(),
-                        "PREFIX=(qaohv)~&@%+".to_string(),
-                        "STATUSMSG=~&@%+".to_string(),
-                        "CALLERID=g".to_string(),
-                        "DEAF=D".to_string(),
-                        "KNOCK".to_string(),
-                        "EXCEPTS=e".to_string(),
-                        "INVEX=I".to_string(),
-                        "CHANMODES=beI,k,l,imnpstCDGKNOPQRSTUVZ".to_string(),
-                        "CHANLIMIT=#&:50".to_string(),
-                        "IDCHAN=!:5".to_string(),
-                        "SAFELIST".to_string(),
-                        "WATCH=128".to_string(),
-                        "MONITOR=128".to_string(),
-                        "TARGMAX=NAMES:1,LIST:1,KICK:4,WHOIS:1,PRIVMSG:4,NOTICE:4,ACCEPT:,MONITOR:".to_string(),
-                        "EXTBAN=$,arx".to_string(),
-                        "CLIENTVER=3.0".to_string(),
-                        "MSGREFTYPES=msgid,timestamp".to_string(), // For chathistory
-                        "ACCOUNT-EXTBAN".to_string(), // 2024 account-extban support
-                        "UTF8ONLY".to_string(), // UTF-8 only mode support
-                        "BOT=B".to_string(), // Bot mode support
+                        "PREFIX=(ov)@+".to_string(),  // Only operator (@) and voice (+) implemented
+                        "CHANLIMIT=#&!+:50".to_string(),
+                        "TARGMAX=NAMES:1,LIST:1,KICK:1,WHO:1,PRIVMSG:4,NOTICE:4".to_string(),
+                        "MSGREFTYPES=msgid,timestamp".to_string(), // For message tagging
+                        "are supported by this server".to_string(),
                     ],
                 }).await?;
                 
@@ -511,8 +522,9 @@ impl ConnectionActor {
                 }
             }
             Command::TagMsg { target } => {
-                // Handle TAGMSG command (for reactions)
-                if !self.capabilities_enabled.contains(&"+draft/react".to_string()) {
+                // Handle TAGMSG command (for reactions and other client tags)
+                // TAGMSG requires message-tags capability
+                if !self.capabilities_enabled.contains(&"message-tags".to_string()) {
                     self.send_reply(Reply::UnknownCommand {
                         nick: self.get_nick().await,
                         command: "TAGMSG".to_string(),
@@ -554,6 +566,104 @@ impl ConnectionActor {
                     self.server_state.clone(),
                     self.id,
                     targets
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Query(target) => {
+                let responses = crate::commands::handlers::query::handle_query(
+                    self.server_state.clone(),
+                    self.id,
+                    target
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Mode { target, modes, params } => {
+                let mut mode_params = vec![target];
+                if let Some(modes) = modes {
+                    mode_params.push(modes);
+                }
+                mode_params.extend(params);
+                let responses = crate::commands::handlers::mode::handle_mode(
+                    self.server_state.clone(),
+                    self.id,
+                    mode_params
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Kick { channel, user, reason } => {
+                let mut params = vec![channel, user];
+                if let Some(reason) = reason {
+                    params.push(reason);
+                }
+                let responses = crate::commands::handlers::kick::handle_kick(
+                    self.server_state.clone(),
+                    self.id,
+                    params
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Topic { channel, topic } => {
+                let mut params = vec![channel];
+                if let Some(topic) = topic {
+                    params.push(topic);
+                }
+                let responses = crate::commands::handlers::topic::handle_topic(
+                    self.server_state.clone(),
+                    self.id,
+                    params
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Who(target) => {
+                let mut params = vec![];
+                if let Some(target) = target {
+                    params.push(target);
+                }
+                let responses = crate::commands::handlers::who::handle_who(
+                    self.server_state.clone(),
+                    self.id,
+                    params
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::List(channels) => {
+                let mut params = vec![];
+                if let Some(channels) = channels {
+                    params.extend(channels);
+                }
+                let responses = crate::commands::handlers::list::handle_list(
+                    self.server_state.clone(),
+                    self.id,
+                    params
+                ).await?;
+                
+                for response in responses {
+                    self.send_message(response).await?;
+                }
+            }
+            Command::Names(channels) => {
+                let responses = crate::commands::handlers::names::handle_names(
+                    self.server_state.clone(),
+                    self.id,
+                    channels
                 ).await?;
                 
                 for response in responses {

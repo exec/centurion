@@ -25,6 +25,7 @@ pub enum Command {
     Who(Option<String>),
     Whois(Vec<String>),
     Whowas(String, Option<i32>),
+    Query(String),
     
     // Channel management
     Kick { channel: String, user: String, reason: Option<String> },
@@ -179,6 +180,13 @@ impl Command {
             "WHOIS" => {
                 if !params.is_empty() {
                     Command::Whois(params)
+                } else {
+                    Command::Unknown(command.to_string(), params)
+                }
+            }
+            "QUERY" => {
+                if let Some(target) = params.first() {
+                    Command::Query(target.clone())
                 } else {
                     Command::Unknown(command.to_string(), params)
                 }

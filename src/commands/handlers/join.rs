@@ -38,6 +38,9 @@ pub async fn handle_join(
             continue;
         }
         
+        // Check if channel exists and if user is already in it
+        let is_new_channel = !state.channels.contains_key(&channel_name);
+        
         // Get or create channel
         let channel = state.channels.entry(channel_name.clone())
             .or_insert_with(|| Channel {
@@ -58,9 +61,15 @@ pub async fn handle_join(
         }
         
         // Add member to channel
+        // If this is a new channel, make the first user an operator (channel founder)
+        let mut member_modes = Vec::new();
+        if is_new_channel {
+            member_modes.push('o'); // Grant operator status to channel founder
+        }
+        
         channel.members.insert(connection_id, ChannelMember {
             connection_id,
-            modes: Vec::new(),
+            modes: member_modes,
             joined_at: Utc::now(),
         });
         
@@ -104,9 +113,17 @@ pub async fn handle_join(
         let mut names = Vec::new();
         for entry in channel.members.iter() {
             let member_id = *entry.key();
+            let member = entry.value();
             if let Some(member_conn) = state.connections.get(&member_id) {
                 if let Some(member_nick) = &member_conn.nickname {
-                    names.push(member_nick.clone());
+                    let mut name = member_nick.clone();
+                    // Add prefix for channel status (highest status first)
+                    if member.modes.contains(&'o') {
+                        name = format!("@{}", name);
+                    } else if member.modes.contains(&'v') {
+                        name = format!("+{}", name);
+                    }
+                    names.push(name);
                 }
             }
         }

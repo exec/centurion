@@ -17,3 +17,4 @@ pub mod oper;
 pub mod nick;
 pub mod tagmsg;
 pub mod chathistory;
+pub mod query;

@@ -1,15 +1,15 @@
 use bytes::Bytes;
-use iron_protocol::{IrcMessage, Command as ProtocolCommand, IronError};
+use legion_protocol::{IrcMessage, Command as ProtocolCommand, IronError};
 use std::collections::HashMap;
 use thiserror::Error;
 
 pub mod codec;
 pub mod commands;
-// pub mod replies; // Now using iron-protocol
-// pub mod capabilities; // Now using iron-protocol
+// pub mod replies; // Now using legion-protocol
+// pub mod capabilities; // Now using legion-protocol
 pub mod extensions;
 
-// 2024 Bleeding-edge IRCv3 capabilities - now using iron-protocol::bleeding_edge
+// 2024 Bleeding-edge IRCv3 capabilities - now using legion-protocol::bleeding_edge
 // pub mod redaction; 
 // pub mod multiline;
 // pub mod read_marker;
@@ -18,21 +18,21 @@ pub mod extensions;
 pub use self::codec::IrcCodec;
 pub use self::commands::Command;
 
-// Re-export iron-protocol types
-pub use iron_protocol::{
+// Re-export legion-protocol types
+pub use legion_protocol::{
     Capability, CapabilitySet, CapabilityHandler,
     constants, utils, Reply
 };
 
-pub use iron_protocol::sasl::{SaslAuth, SaslMechanism};
+pub use legion_protocol::sasl::{SaslAuth, SaslMechanism};
 
 #[cfg(feature = "bleeding-edge")]
-pub use iron_protocol::bleeding_edge;
+pub use legion_protocol::bleeding_edge;
 
-// Use iron-protocol's IrcMessage directly
+// Use legion-protocol's IrcMessage directly
 pub type Message = IrcMessage;
 
-// Use iron-protocol's error types
+// Use legion-protocol's error types
 pub type ProtocolError = IronError;
 
 // Helper extension trait for Message conversion
@@ -46,4 +46,4 @@ impl MessageExt for Message {
     }
 }
 
-// From<Reply> for Message is implemented in iron-protocol
+// From<Reply> for Message is implemented in legion-protocol

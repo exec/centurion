@@ -1,20 +1,22 @@
 [package]
-name = "ironchatd"
+name = "centurion"
 version = "0.1.0"
 edition = "2021"
-authors = ["IronChatD Contributors"]
-description = "🦾 Bleeding-edge IRCv3 server with 2024-2025 draft capabilities"
+authors = ["Centurion Contributors"]
+description = "🏛️ Centurion - Secure IRC server with Legion Protocol support"
 license = "MIT"
-repository = "https://github.com/exec/ironchatd"
-homepage = "https://github.com/exec/ironchatd"
-documentation = "https://docs.rs/ironchatd"
+repository = "https://github.com/exec/centurion"
+homepage = "https://github.com/exec/centurion"
+documentation = "https://docs.rs/centurion"
 keywords = ["irc", "server", "ircv3", "chat", "networking"]
 categories = ["network-programming", "web-programming"]
 readme = "README.md"
 
 [dependencies]
 # Shared IRC protocol library
-iron-protocol = { path = "../iron-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+legion-protocol = { path = "../legion-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+# E2E encryption protocol
+phalanx = { path = "../phalanx", features = ["std", "serde", "async"] }
 
 tokio = { version = "1.42", features = ["full"] }
 bytes = "1.9"
@@ -46,15 +48,18 @@ crossbeam-channel = "0.5"
 num_cpus = "1.16"
 governor = "0.8"
 nonzero_ext = "0.3"
+bincode = "1.3"
+hex = "0.4"
 
 # Crypto dependencies (needed by auth modules)
 base64 = "0.22"
 sha2 = "0.10"
 hmac = "0.12"
 pbkdf2 = "0.12"
+blake3 = "1.5"
 
-# Remove duplicated dependencies (now provided by iron-protocol)
-# irc-proto = "0.15"  # Replaced by iron-protocol
+# Remove duplicated dependencies (now provided by legion-protocol)
+# irc-proto = "0.15"  # Replaced by legion-protocol
 
 [dev-dependencies]
 mockall = "0.13"
@@ -63,7 +68,7 @@ criterion = "0.5"
 
 [features]
 default = ["bleeding-edge"]
-bleeding-edge = ["iron-protocol/bleeding-edge"]
+bleeding-edge = ["legion-protocol/bleeding-edge"]
 
 [[bench]]
 name = "parser_benchmarks"
