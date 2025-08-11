@@ -1,80 +1,41 @@
-# 🦾 IronChatD - Bleeding-Edge IRCv3 Server
+# 🏛️ Centurion - Modern IRC Server
 
-A modern, high-performance IRC server built in Rust with comprehensive support for IRCv3 specifications including cutting-edge 2024-2025 draft capabilities.
+A high-performance IRC server built in Rust with comprehensive IRCv3 support, designed for modern chat networks and seamless integration with the Legion Protocol ecosystem.
 
 ## Features
 
 ### Core IRC Protocol Support
 - **RFC 1459/2812 compliant** with full backward compatibility
-- **IRCv3 specification** implementation with modern extensions
+- **IRCv3 specification** implementation with essential extensions
 - **Capability negotiation** (CAP) for feature discovery
-- **Message tags** for metadata attachment
-- **SASL authentication** with multiple mechanisms (PLAIN, SCRAM-SHA-256)
+- **Message tags** with server-time and msgid support
+- **SASL authentication** (advertised, implementation in progress)
 - **TLS/SSL support** for secure connections
 
-### IRCv3 Extensions (Complete 2024-2025 Implementation)
+### IRCv3 Extensions (Current Implementation)
 
-#### Core IRCv3 Capabilities (Ratified)
+#### Implemented Capabilities
 - `message-tags` - Attach metadata to messages
 - `server-time` - Accurate timestamps on all messages
-- `account-notify` - Account change notifications
-- `account-tag` - Account information in message tags
-- `away-notify` - Real-time away status updates
 - `batch` - Message batching for efficiency
-- `cap-notify` - Capability change notifications
-- `chghost` - Host change notifications
 - `echo-message` - Echo sent messages back to sender
-- `extended-join` - Extended JOIN with account info
-- `invite-notify` - Channel invitation notifications
-- `labeled-response` - Request/response correlation
-- `monitor` - Efficient nickname monitoring
-- `multi-prefix` - Multiple channel prefixes
-- `sasl` - Standardized authentication
-- `setname` - Change real name without reconnecting
-- `standard-replies` - Standardized error/info messages
-- `userhost-in-names` - Full hostmasks in NAMES
-- `bot` - Bot mode identification
-- `utf8only` - UTF-8 only communication
-- `sts` - Strict Transport Security
-- `chathistory` - Message history retrieval
+- `sasl` - Standardized authentication (advertised)
 
-#### 2024 Bleeding-Edge Capabilities (Latest Specifications)
-- **`draft/message-redaction`** (April 2024) - Delete/redact sent messages
-  - Allows users to retract accidentally sent messages
-  - Moderation tool for channel operators
-  - Configurable time window for redaction
-- **`account-extban`** (July 2024) - Account-based channel bans
-  - Ban users by account rather than hostmask
-  - More persistent and effective moderation
-- **`draft/metadata-2`** (September 2024) - User metadata v2
-  - Attach arbitrary public information to users
-  - Homepage, contact details, status information
+#### Command Support
+- **JOIN/PART** - Channel membership with founder auto-op
+- **PRIVMSG/NOTICE** - Message delivery with tagging
+- **TAGMSG** - Client tag messages with server tagging
+- **MODE** - Complete channel mode management (+o, +v, +t, +n, +m, +i, +s, +p, +k, +l)
+- **KICK/TOPIC** - Channel moderation and management
+- **WHO/WHOIS** - User information queries
+- **LIST/NAMES** - Channel discovery and membership
+- **CAP** - Capability negotiation (LS, REQ, ACK, NAK, END)
 
-#### Draft Capabilities (Work in Progress - Bleeding Edge)
-- **`draft/multiline`** - Multi-line messages with batching
-  - Send messages longer than 512 bytes
-  - Preserve line breaks and formatting
-  - Configurable limits (max-bytes, max-lines)
-- **`draft/read-marker`** - Read receipt tracking
-  - Track which messages users have read
-  - Synchronize read status across multiple clients
-  - Essential for bouncer and mobile use
-- **`draft/relaymsg`** - Bot message relaying
-  - Allow bots to send messages with spoofed nicks
-  - Transparent bridge/relay operation
-  - Permission-based access control
-- **`draft/typing`** - Real-time typing indicators
-  - Show when users are typing messages
-  - Throttled to prevent spam
-  - Active, paused, and done states
-- **`draft/pre-away`** - Away status during registration
-  - Set away status before connection completes
-  - Useful for bouncer reconnections
-
-#### Client-Only Tags
-- `+typing` - Typing status indicators
-- `+draft/reply` - Message replies and threading  
-- `+draft/react` - Message reactions
+#### Channel Features
+- **Operator Privileges** - Full moderation control with privilege checking
+- **Channel Modes** - Topic protection, moderation, invite-only, keys, limits
+- **Member Modes** - Operator (@) and voice (+) status
+- **Auto-op** - Channel founders automatically receive operator privileges
 
 ### Modern Architecture
 - **Actor-based design** for scalability and fault tolerance
@@ -85,14 +46,11 @@ A modern, high-performance IRC server built in Rust with comprehensive support f
 - **Rate limiting** and flood protection
 - **Hot reloading** of configuration
 
-### Advanced Features
-- **Channel modes**: +m (moderated), +n (no external), +t (topic lock), +i (invite-only), +k (key), +l (limit)
-- **User modes**: +i (invisible), +w (wallops), +o (operator), +s (server notices)
-- **WHOIS/WHO/LIST** commands with proper filtering
-- **KICK/BAN** channel management
-- **CTCP** (Client-To-Client Protocol) support
-- **DCC** (Direct Client-to-Client) support
-- **Server linking** for network expansion
+### Legion Protocol Integration
+- **Designed for Legion ecosystem** - Optimized for use with Legion Protocol and Legionnaire client
+- **Enhanced tagging** - Consistent message tagging across PRIVMSG and TAGMSG
+- **Modern defaults** - Focused on essential features rather than legacy compatibility
+- **Production ready** - Comprehensive testing and error handling
 
 ## Installation
 
@@ -104,28 +62,28 @@ A modern, high-performance IRC server built in Rust with comprehensive support f
 ### Building from Source
 
 ```bash
-git clone https://github.com/your-org/ironchatd.git
-cd ironchatd
+git clone https://github.com/dylan-k/centurion.git
+cd centurion
 cargo build --release
 ```
 
 ### Using Cargo
 
 ```bash
-cargo install ironchatd
+cargo install --git https://github.com/dylan-k/centurion
 ```
 
 ## Configuration
 
-IronChatD uses TOML configuration files. Here's a basic example:
+Centurion uses TOML configuration files. Here's a basic example:
 
 ```toml
 [server]
-name = "ironchatd.example.com"
-description = "IronChat IRC Server"
+name = "centurion.example.com"
+description = "Centurion IRC Server"
 listen_addresses = ["0.0.0.0:6667"]
 tls_listen_addresses = ["0.0.0.0:6697"]
-motd_file = "/etc/ironchatd/motd.txt"
+motd_file = "/etc/centurion/motd.txt"
 
 [network]
 name = "ExampleNet"
@@ -134,13 +92,13 @@ admin_email = "admin@example.com"
 server_id = "001"
 
 [database]
-url = "postgres://user:password@localhost/ironchatd"
+url = "postgres://user:password@localhost/centurion"
 max_connections = 10
 connection_timeout = 30
 
 [security]
-tls_cert_file = "/etc/ironchatd/server.crt"
-tls_key_file = "/etc/ironchatd/server.key"
+tls_cert_file = "/etc/centurion/server.crt"
+tls_key_file = "/etc/centurion/server.key"
 require_tls = false
 min_tls_version = "1.2"
 password_hash_algorithm = "argon2"
@@ -175,13 +133,13 @@ enable_echo_message = true
 
 ```bash
 # Use default configuration
-ironchatd
+centurion
 
 # Specify configuration file
-ironchatd --config /path/to/config.toml
+centurion --config /path/to/config.toml
 
 # Run with debug logging
-RUST_LOG=debug ironchatd
+RUST_LOG=debug centurion
 ```
 
 ### Database Setup
@@ -190,10 +148,10 @@ Before first run, initialize the database:
 
 ```bash
 # For PostgreSQL
-ironchatd --init-db --config config.toml
+centurion --init-db --config config.toml
 
 # For SQLite (automatic)
-ironchatd --config config-sqlite.toml
+centurion --config config-sqlite.toml
 ```
 
 ### Running with Docker
@@ -206,9 +164,9 @@ RUN cargo build --release
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/ironchatd /usr/local/bin/
+COPY --from=builder /app/target/release/centurion /usr/local/bin/
 EXPOSE 6667 6697
-CMD ["ironchatd"]
+CMD ["centurion"]
 ```
 
 ## Usage Examples
@@ -225,14 +183,12 @@ weechat
 hexchat
 ```
 
-### IRCv3 Capability Negotiation (2024 Bleeding-Edge)
+### IRCv3 Capability Negotiation
 
 ```irc
-# Request all bleeding-edge capabilities
-CAP LS 302
-CAP REQ :message-tags server-time sasl draft/message-redaction draft/multiline draft/read-marker draft/typing account-extban
-AUTHENTICATE PLAIN
-AUTHENTICATE <base64-encoded-credentials>
+# Request available capabilities
+CAP LS
+CAP REQ :message-tags server-time batch echo-message
 CAP END
 ```
 
@@ -242,73 +198,40 @@ CAP END
 JOIN #general
 PRIVMSG #general :Hello, world!
 TOPIC #general :Welcome to our channel
-MODE #general +m
+MODE #general +tm
+MODE #general +o alice
 KICK #general baduser :Reason for kick
 ```
 
-### 2024 Bleeding-Edge Features
+### Message Tagging
 
-#### Message Redaction (April 2024)
 ```irc
-# Send a message with a message ID
-@msgid=abc123 PRIVMSG #channel :Oops, typo!
+# TAGMSG with client tags (reactions)
+@+draft/reply=msgid123;+draft/react=👍 TAGMSG #channel
 
-# Redact the message within the time window
-REDACT #channel abc123 :Fixed the typo
-
-# Server forwards redaction to all clients
-:user!user@host REDACT #channel abc123 :Fixed the typo
+# Server adds server-time and msgid tags automatically
+@time=2024-01-01T12:00:00.000Z;msgid=abc123 PRIVMSG #channel :Hello!
 ```
 
-#### Multiline Messages (Draft)
+### Channel Mode Management
+
 ```irc
-# Start multiline batch
-BATCH +ref123 draft/multiline #channel PRIVMSG
+# Grant operator privileges
+MODE #channel +o username
 
-# Send multiple lines
-@batch=ref123 PRIVMSG #channel :This is line 1
-@batch=ref123;draft/multiline-concat PRIVMSG #channel : continued
-@batch=ref123 PRIVMSG #channel :This is line 2
+# Set channel modes
+MODE #channel +tn         # Topic protection + no external messages
+MODE #channel +k secret   # Set channel key
+MODE #channel +l 50       # Set user limit
 
-# End batch
-BATCH -ref123
-```
-
-#### Read Markers (Draft)
-```irc
-# Set read marker to current time
-MARKREAD #channel 2024-12-01T12:00:00Z
-
-# Get current read marker
-MARKREAD #channel
-:server MARKREAD #channel 2024-12-01T12:00:00Z
-
-# Clear read marker
-MARKREAD #channel *
-```
-
-#### Typing Indicators (Draft)
-```irc
-# Send typing notification
-@+typing=active TAGMSG #channel
-
-# Pause typing
-@+typing=paused TAGMSG #channel
-
-# Done typing (clear status)
-@+typing=done TAGMSG #channel
-```
-
-#### Bot Message Relaying (Draft)
-```irc
-# Bot sends message as another user
-RELAYMSG #channel alice :Hello from Discord!
-:bot!bot@bridge.example RELAYMSG #channel alice :Hello from Discord!
+# Remove modes
+MODE #channel -t          # Remove topic protection
+MODE #channel -o username # Remove operator privileges
 ```
 
 ## Architecture
 
-IronChatD uses a modern actor-based architecture:
+Centurion uses a modern actor-based architecture:
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -340,7 +263,7 @@ IronChatD uses a modern actor-based architecture:
 
 ## Performance
 
-IronChatD is designed for high performance:
+Centurion is designed for high performance:
 
 - **10,000+ concurrent connections** on modest hardware
 - **Sub-millisecond message routing** within the same server
@@ -358,7 +281,7 @@ On a 4-core VPS with 2GB RAM:
 
 ## Security
 
-IronChatD implements comprehensive security measures:
+Centurion implements comprehensive security measures:
 
 ### Authentication
 - **SASL mechanisms**: PLAIN, SCRAM-SHA-256, EXTERNAL
@@ -378,7 +301,7 @@ IronChatD implements comprehensive security measures:
 
 ## Testing
 
-IronChatD includes comprehensive testing:
+Centurion includes comprehensive testing:
 
 ```bash
 # Unit tests
@@ -391,20 +314,20 @@ cargo test --test integration
 cargo bench
 
 # IRC protocol compliance
-irctest --controller ironchatd tests/
+irctest --controller centurion tests/
 ```
 
 ## Monitoring and Observability
 
 ### Logging
-IronChatD uses structured logging with the `tracing` crate:
+Centurion uses structured logging with the `tracing` crate:
 
 ```bash
 # JSON logging for production
-RUST_LOG=info IRONCHATD_LOG_FORMAT=json ironchatd
+RUST_LOG=info CENTURION_LOG_FORMAT=json centurion
 
 # Pretty logging for development
-RUST_LOG=debug ironchatd
+RUST_LOG=debug centurion
 ```
 
 ### Metrics
@@ -427,8 +350,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ### Development Setup
 
 ```bash
-git clone https://github.com/your-org/ironchatd.git
-cd ironchatd
+git clone https://github.com/dylan-k/centurion.git
+cd centurion
 cargo build
 cargo test
 ```
@@ -449,37 +372,38 @@ cargo tarpaulin --out Html
 
 ## License
 
-IronChatD is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Centurion is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Documentation**: [https://docs.ironchatd.org](https://docs.ironchatd.org)
-- **Issue Tracker**: [GitHub Issues](https://github.com/your-org/ironchatd/issues)
-- **Discord**: [#ironchatd](https://discord.gg/ironchatd)
-- **IRC**: `#ironchatd` on `irc.libera.chat`
+- **Documentation**: Available in the repository README and code comments
+- **Issue Tracker**: [GitHub Issues](https://github.com/dylan-k/centurion/issues)
+- **IRC**: `#centurion` on your deployed server
 
-## Roadmap
+## Current Status
 
-### Version 1.0
-- [x] Core IRC protocol implementation
-- [x] IRCv3 capability negotiation
-- [x] SASL authentication
-- [x] TLS support
-- [x] Database persistence
-- [ ] Comprehensive test suite
-- [ ] Performance optimization
+### Implemented Features
+- [x] Core IRC protocol (JOIN, PART, PRIVMSG, NOTICE)
+- [x] IRCv3 capability negotiation (CAP LS, REQ, ACK, END)
+- [x] Message tagging (server-time, msgid for PRIVMSG and TAGMSG)
+- [x] Channel management (MODE, KICK, TOPIC)
+- [x] User information (WHO, WHOIS, LIST, NAMES)
+- [x] Operator privileges and channel founder auto-op
+- [x] Comprehensive test coverage for command handlers
+- [x] Actor-based concurrent architecture
 
-### Version 1.1
+### In Development
+- [ ] SASL authentication implementation
+- [ ] Database persistence layer
+- [ ] TLS/SSL support
+- [ ] Rate limiting and flood protection
+- [ ] Advanced channel modes (ban lists, etc.)
+
+### Future Plans
 - [ ] Server linking for networks
-- [ ] Advanced channel modes
-- [ ] Services integration
-- [ ] Web management interface
-
-### Version 2.0
-- [ ] Distributed architecture
-- [ ] Advanced anti-spam
-- [ ] Plugin system
-- [ ] GraphQL API
+- [ ] Enhanced Legion Protocol integration
+- [ ] Performance optimizations
+- [ ] Production deployment features
 
 ## Acknowledgments
 
@@ -490,4 +414,4 @@ IronChatD is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-*IronChatD: Bringing IRC into the modern age with Rust's safety and performance.*
+*Centurion: A modern IRC server built for the Legion Protocol ecosystem, combining IRC's proven architecture with modern Rust performance and safety.*
