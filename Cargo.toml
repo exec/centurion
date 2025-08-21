@@ -1,26 +1,26 @@
 [package]
-name = "centurion"
+name = "legion-server"
 version = "0.1.0"
 edition = "2021"
 authors = ["Centurion Contributors"]
-description = "🏛️ Centurion - Secure IRC server with Legion Protocol support"
+description = "🏛️ Legion Server - Secure IRC server with Legion Protocol support"
 license = "MIT"
 repository = "https://github.com/exec/centurion"
 homepage = "https://github.com/exec/centurion"
-documentation = "https://docs.rs/centurion"
+documentation = "https://docs.rs/legion-server"
 keywords = ["irc", "server", "ircv3", "chat", "networking"]
 categories = ["network-programming", "web-programming"]
 readme = "README.md"
 
 [dependencies]
 # Shared IRC protocol library
-legion-protocol = { version = "0.1", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+# legion-protocol = { version = "0.1", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
 # E2E encryption protocol
-phalanx = { version = "0.1", features = ["std", "serde", "async"] }
+# phalanx = { version = "0.1", features = ["std", "serde", "async"] }
 
 # Development dependencies (uncomment for local development)
-# legion-protocol = { path = "../legion-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
-# phalanx = { path = "../phalanx", features = ["std", "serde", "async"] }
+legion-protocol = { path = "../legion-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+phalanx = { path = "../phalanx", features = ["std", "serde", "async"] }
 
 tokio = { version = "1.42", features = ["full"] }
 bytes = "1.9"
