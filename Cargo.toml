@@ -14,9 +14,13 @@ readme = "README.md"
 
 [dependencies]
 # Shared IRC protocol library
-legion-protocol = { path = "../legion-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+legion-protocol = { version = "0.1", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
 # E2E encryption protocol
-phalanx = { path = "../phalanx", features = ["std", "serde", "async"] }
+phalanx = { version = "0.1", features = ["std", "serde", "async"] }
+
+# Development dependencies (uncomment for local development)
+# legion-protocol = { path = "../legion-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+# phalanx = { path = "../phalanx", features = ["std", "serde", "async"] }
 
 tokio = { version = "1.42", features = ["full"] }
 bytes = "1.9"
