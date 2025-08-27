@@ -14,13 +14,10 @@ readme = "README.md"
 
 [dependencies]
 # Shared IRC protocol library
-# legion-protocol = { version = "0.1", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
+legion-protocol = { version = "0.1", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
 # E2E encryption protocol
-# phalanx = { version = "0.1", features = ["std", "serde", "async"] }
+phalanx-crypto = { version = "0.1", features = ["std", "serde", "async"] }
 
-# Development dependencies (uncomment for local development)
-legion-protocol = { path = "../legion-protocol", features = ["std", "serde", "chrono", "bleeding-edge", "server"] }
-phalanx = { path = "../phalanx", features = ["std", "serde", "async"] }
 
 tokio = { version = "1.42", features = ["full"] }
 bytes = "1.9"
@@ -62,18 +59,9 @@ hmac = "0.12"
 pbkdf2 = "0.12"
 blake3 = "1.5"
 
-# Remove duplicated dependencies (now provided by legion-protocol)
-# irc-proto = "0.15"  # Replaced by legion-protocol
-
 [dev-dependencies]
-mockall = "0.13"
-proptest = "1.6"
-criterion = "0.5"
+tokio-test = "0.4"
 
 [features]
 default = ["bleeding-edge"]
 bleeding-edge = ["legion-protocol/bleeding-edge"]
-
-[[bench]]
-name = "parser_benchmarks"
-harness = false

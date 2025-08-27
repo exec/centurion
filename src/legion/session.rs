@@ -5,7 +5,7 @@
 
 use crate::legion::{LegionError, LegionResult};
 use legion_protocol::{Capability, IronSession, IronVersion};
-use phalanx::{Identity, PublicKey};
+use phalanx_crypto::{Identity, PublicKey};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use std::collections::HashSet;
 use tokio::sync::RwLock;
@@ -201,7 +201,7 @@ impl LegionSession {
     }
     
     /// Generate session handshake for joining groups
-    pub async fn create_handshake(&self, group_id: [u8; 32]) -> LegionResult<phalanx::protocol::HandshakeMessage> {
+    pub async fn create_handshake(&self, group_id: [u8; 32]) -> LegionResult<phalanx_crypto::protocol::HandshakeMessage> {
         let identity = self.identity.read().await;
         
         let capabilities = vec![
@@ -211,7 +211,7 @@ impl LegionSession {
         
         let client_info = format!("centurion-client/{}", env!("CARGO_PKG_VERSION"));
         
-        phalanx::protocol::HandshakeMessage::new(
+        phalanx_crypto::protocol::HandshakeMessage::new(
             &*identity,
             group_id,
             capabilities,
@@ -222,8 +222,8 @@ impl LegionSession {
     /// Validate and process a handshake message
     pub async fn process_handshake(
         &self,
-        handshake: phalanx::protocol::HandshakeMessage
-    ) -> LegionResult<phalanx::protocol::HandshakePayload> {
+        handshake: phalanx_crypto::protocol::HandshakeMessage
+    ) -> LegionResult<phalanx_crypto::protocol::HandshakePayload> {
         handshake.verify_and_decrypt()
             .map_err(|e| LegionError::Session(format!("Handshake processing failed: {}", e)))
     }

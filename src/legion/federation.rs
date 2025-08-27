@@ -3,7 +3,7 @@
 //! Handles cross-server encrypted communication and Herald bridge integration.
 
 use crate::legion::{LegionError, LegionResult};
-use phalanx::{Identity, PublicKey};
+use phalanx_crypto::{Identity, PublicKey};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
@@ -405,7 +405,7 @@ pub struct FederationStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phalanx::Identity;
+    use phalanx_crypto::Identity;
     
     #[tokio::test]
     async fn test_federation_manager_creation() {

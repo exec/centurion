@@ -6,7 +6,7 @@
 use crate::legion::{LegionError, LegionResult};
 use legion_protocol::{AdminOperation, MemberOperation, BanOperation, KeyOperation, MemberRole, 
                      ChannelMode, ChannelSettings, AdminResult, ChannelAdmin, Permission};
-use phalanx::{Identity, PublicKey};
+use phalanx_crypto::{Identity, PublicKey};
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, Duration};
 use tokio::sync::RwLock;
@@ -1012,7 +1012,7 @@ mod tests {
         let settings = ServerChannelSettings::default();
         let manager = AdvancedChannelManager::new(settings).await.unwrap();
         
-        let identity = phalanx::Identity::generate();
+        let identity = phalanx_crypto::Identity::generate();
         let result = manager.execute_admin_operation(
             "!test",
             AdminOperation::CreateChannel {
@@ -1031,7 +1031,7 @@ mod tests {
         let settings = ServerChannelSettings::default();
         let manager = AdvancedChannelManager::new(settings).await.unwrap();
         
-        let identity = phalanx::Identity::generate();
+        let identity = phalanx_crypto::Identity::generate();
         
         // Create channel first
         let _create_result = manager.execute_admin_operation(

@@ -260,7 +260,7 @@ impl LegionManager {
 #[derive(Debug, Clone, Serialize)]
 pub struct ChannelInfo {
     pub name: String,
-    pub phalanx_stats: phalanx::group::GroupStats,
+    pub phalanx_stats: phalanx_crypto::group::GroupStats,
     pub member_stats: crate::legion::members::ChannelStats,
     pub key_stats: crate::legion::keys::ChannelKeyStats,
     pub created_at: SystemTime,

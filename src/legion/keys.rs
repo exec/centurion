@@ -3,7 +3,7 @@
 //! Handles key rotation, storage, backup, and recovery for production deployments.
 
 use crate::legion::{LegionError, LegionResult};
-use phalanx::{Identity, protocol::KeyRotationMessage};
+use phalanx_crypto::{Identity, protocol::KeyRotationMessage};
 use std::collections::HashMap;
 use std::time::{SystemTime, Duration};
 use tokio::sync::RwLock;
@@ -409,7 +409,7 @@ impl ChannelKeyStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phalanx::{Identity, protocol::KeyRotationMessage};
+    use phalanx_crypto::{Identity, protocol::KeyRotationMessage};
     
     #[tokio::test]
     async fn test_key_manager_creation() {

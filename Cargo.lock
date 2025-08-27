@@ -319,54 +319,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "centurion"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "async-trait",
- "base64 0.22.1",
- "bincode",
- "blake3",
- "bytes",
- "chrono",
- "config",
- "criterion",
- "crossbeam-channel",
- "dashmap",
- "futures",
- "governor",
- "hex",
- "hmac",
- "legion-protocol",
- "mockall",
- "nonzero_ext",
- "num_cpus",
- "once_cell",
- "parking_lot",
- "pbkdf2",
- "phalanx",
- "pin-project",
- "proptest",
- "rand 0.8.5",
- "regex",
- "rustls 0.22.4",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "tokio-stream",
- "tokio-util",
- "toml",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "cexpr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1453,6 +1405,8 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 [[package]]
 name = "legion-protocol"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c33aad009285dbdbc98a6e3ff282f56ee016fd584dbbfac3fdb82c3c2e03a987"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -1466,6 +1420,54 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+]
+
+[[package]]
+name = "legion-server"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "async-trait",
+ "base64 0.22.1",
+ "bincode",
+ "blake3",
+ "bytes",
+ "chrono",
+ "config",
+ "criterion",
+ "crossbeam-channel",
+ "dashmap",
+ "futures",
+ "governor",
+ "hex",
+ "hmac",
+ "legion-protocol",
+ "mockall",
+ "nonzero_ext",
+ "num_cpus",
+ "once_cell",
+ "parking_lot",
+ "pbkdf2",
+ "phalanx-crypto",
+ "pin-project",
+ "proptest",
+ "rand 0.8.5",
+ "regex",
+ "rustls 0.22.4",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1860,8 +1862,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "phalanx"
+name = "phalanx-crypto"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "801beb6c689b23f7246553bffc2f464f15d18347efa7e70542987f1db3b46ebd"
 dependencies = [
  "async-trait",
  "base64 0.22.1",

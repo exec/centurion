@@ -3,7 +3,7 @@
 //! Handles authentication, authorization, roles, and permissions for encrypted channels.
 
 use crate::legion::{LegionError, LegionResult};
-use phalanx::PublicKey;
+use phalanx_crypto::PublicKey;
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, Duration};
 use tokio::sync::RwLock;
@@ -68,7 +68,7 @@ struct MemberInfo {
     /// Member ID
     member_id: String,
     /// Member's current identity
-    identity: phalanx::Identity,
+    identity: phalanx_crypto::Identity,
     /// Channels this member is in
     channels: HashSet<String>,
     /// Member registration time
@@ -271,7 +271,7 @@ impl MemberManager {
     }
     
     /// Register a new member globally
-    pub async fn register_member(&self, member_id: String, identity: phalanx::Identity) -> LegionResult<()> {
+    pub async fn register_member(&self, member_id: String, identity: phalanx_crypto::Identity) -> LegionResult<()> {
         let mut registry = self.member_registry.write().await;
         
         let member_info = MemberInfo {
@@ -289,7 +289,7 @@ impl MemberManager {
     }
     
     /// Create a new channel with an owner
-    pub async fn create_channel(&self, channel_name: String, owner_id: String, owner_identity: phalanx::Identity) -> LegionResult<()> {
+    pub async fn create_channel(&self, channel_name: String, owner_id: String, owner_identity: phalanx_crypto::Identity) -> LegionResult<()> {
         // Register owner if not already registered
         if !self.is_member_registered(&owner_id).await {
             self.register_member(owner_id.clone(), owner_identity.clone()).await?;
@@ -638,7 +638,7 @@ pub struct ChannelStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phalanx::Identity;
+    use phalanx_crypto::Identity;
     
     #[tokio::test]
     async fn test_member_manager_creation() {
